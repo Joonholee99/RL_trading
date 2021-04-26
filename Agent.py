@@ -122,12 +122,88 @@ class Agent:
 
 
     def decide_trading_unit(self, confidence):
+        # Confidence에 따라서 주식을 더 사거나 함 -> confidence 100이면 max, 0이면 min 개수 만큼 구매
         if np.isnan(confidence):
             return self.min_trading_unit
         
         added_trading = max(min(int(confidence * (self.max_trading_unit - self.min_trading_unit)), self.max_trading_unit - self.min_trading_unit),0)
 
         return self.min_trading_unit + added_trading
+
+    def act(self, action, confidence):
+        # 결정한 행동을 수행하는 module
+
+        if not self.validate_action(action):
+            action = Agent.ACTION_HOLD
+        
+        # 환경에서 현재 가격 얻기
+        curr_price = self.environment.get_price()
+
+        # 즉시 보상 초기화 -> 즉시 보상은 행동할 때마다 결정되기 때문에 초기화해야함
+        self.immediate_reward = 0
+
+        # BUY
+        if action == Agent.ACTION_BUY:
+            trading_unit = self.decide_trading_unit(confidence)
+            balance = (self.balance - curr_price * (1 + self.TRADING_CHARGE)*(trading_unit))
+
+            # 보유 현금이 모자랄 경우 보유 현금으로 가능한 만큼 최대 매수
+            if balance <0 :
+                trading_unit = max(min(int(self.balance/(curr_price)*(1+TRADING_CHARGE)), self.max_trading_unit),self.min_trading_unit)
+            
+            # 수수료 적용하여 총 매수 금액 산정
+            invest_amount = curr_price * (1+TRADING_CHARGE) * (trading_unit)
+            if invest_amount > 0:
+                self.balance -= invest_amount
+                self.num_stocks += trading_unit
+                self.num_buy += 1
+
+        
+        # SELL
+        elif action == Agent.ACTION_SELL:
+            #매도 단위 판단
+            trading_unit = self.decide_trading_unit(confidence)
+            # 매도 단위가 보유 주식수보다 크지 않도록 제한
+            trading_unit = min(trading_unit, self.num_stocks)
+
+            #매도
+            invest_amount = curr_price * (1-(self.TRADING_TAX + self.TRADING_CHARGE)) * trading_unit
+
+            if invest_amount >0:
+                self.num_stocks -= trading_unit
+                self.balance += invest_amount
+                self.num_sell += 1
+
+        elif action == Agent.ACTION_HOLD:
+            self.num_hold += 1
+
+        
+        # 포트폴리오 가치 갱신
+        self.portfolio_value = self.balance + curr_price * self.num_stocks
+        self.profitloss = ((self.portfolio_value - self.intial_balance)/self.initial_balance)
+
+        # 즉시 보상 -> 수익률
+        self.immediate_reward = self.profitloss
+
+        # 지연 보상 -> 익절, 손절 기준
+        delayed_reward = 0
+
+        self.base_profitloss = ((self.portfolio_value - self.base_portfolio_value)/self.base_portfolio_value)
+        
+        # 기준 지연 보상 이상, 이하인 경우!
+        if self.base_profitloss > self.delayed_reward_threshold or self.base_profitloss < -self.delayed_reward_threshold:
+            self.base_portfolio_value = self.portfolio_value
+            delayed_reward = self.immediate_reward
+        
+        else:
+            delayed_reward = 0
+
+        return self.immediate_reward, delayed_reward
+
+        
+
+
+    
 
     
     
