@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 
 from mplfinance.original_flavor import candlestick_ohlc
-from agent import agent
+from agent import Agent
 
 lock = threading.Lock()
 
-class visualizer:
+class Visualizer:
     COLORS = ['r','b','g']
 
     def __init__(self, vnet=False):
@@ -100,5 +100,47 @@ class visualizer:
                 if len(outvals_policy) >0:
                     for action, color in zip(action_list, self.COLORS):
                         self.axes[3].plot(x, outvals_policy[:,action],coor = color, linestyle = '-')
+
+                # 차트 5, 포트폴리오 가치
+                self.axes[4].axhline(
+                    initial_balance, linestyle ='-', color = 'gray'
+                )
+                self.axes[4].fill_between(x, pvs, pvs_base, where=pvs > pvs_base, facecolor = 'r', alpha = 0.1)
+                self.axes[4].fill_between(x, pvs, pvs_base, where=pvs < pvs_base, facecolor = 'b', alpha = 0.1)
+                self.axes[4].plot(x,pvs,'-k')
+                # 학습 위치 표시
+                for learning_idx in learning_idxes:
+                    self.axes[4].axvline(learning_idx, color = 'y')
+
+                # 에포크 및 탐험 비율
+                self.fig.suptitle('{} \n Epoch:{}/{} e = {:.2f}'.format(self.title, epoch_str, num_epoches, epsilon))
+                # 캔버스 레이아웃 조정
+                self.fig.tight_layout()
+                self.fig.subplots_adjust(top=0.85)
+
+    def clear(self, xlim):
+        with lock:
+            _axes = self.axes.tolist()
+            for ax in _axes[1:]:
+                ax.Cla()
+                ax.relim()
+                ax.autoscale()
+
+            self.axes[1].set_ylabel("Agent") 
+            self.axes[2].set_ylabel("V")
+            self.axes[3].set_ylabel("P")
+            self.axes[4].set_ylabel("PV")
+
+            for ax in _axes:
+                ax.set_xlim(xlim)
+                ax.get_xaxis().get_major_formatter().set_scientific(False)
+                ax.get_yaxis().get_major_formatter().set_scientific(False)
+
+                # X축 간격 일정
+                ax.ticklabel_format(useOffset=False)
+    def save(self, path):
+        with lock:
+            self.fig.savefig(path)               
+
                         
                 

@@ -15,19 +15,19 @@ def set_session(sess):
 graph = DummyGraph()
 sess = None
 
-if os.environ['KERAS_BACKEND'] = 'tensorflow':
-    from tensorflow.keras.models import Model 
-    from tensorflow.keras.layers import Input, Dense, LSTM, Conv2D, BatchNormalization, Dropout, MaxPooling2D, Flatten
-    from tensorflow.keras.optimizers import SGD
-    from tensorflow.keras.backend import set_session
-    import tensorflow as tf 
-    graph = tf.get_default_graph()
-    sess = tf.compat.v1.Session()
+# if os.environ["KERAS_BACKEND"] == 'tensorflow':
+from tensorflow.keras.models import Model 
+from tensorflow.keras.layers import Input, Dense, LSTM, Conv2D, BatchNormalization, Dropout, MaxPooling2D, Flatten
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.backend import set_session
+import tensorflow as tf 
+graph = tf.get_default_graph()
+sess = tf.compat.v1.Session()
 
-elif os.environ['KERAS_BACKEND'] == 'plaidml.keras.backend':
-    from keras.models import Model
-    from keras.layers import Input, Dense, LSTM, Conv2D, BatchNormalization, Dropout, MaxPooling2D, Flatten
-    from keras.optimizers import SGD
+# elif os.environ["KERAS_BACKEND"] == 'plaidml.keras.backend':
+#     from keras.models import Model
+#     from keras.layers import Input, Dense, LSTM, Conv2D, BatchNormalization, Dropout, MaxPooling2D, Flatten
+#     from keras.optimizers import SGD
 
 class Network:
     lock = threading.Lock()
@@ -58,7 +58,7 @@ class Network:
         return loss
 
     def save_model(self, model_path):
-        if model_path is non None and self.model is not None:
+        if model_path is None and self.model is not None:
             self.model.save_weights(model_path, overwrite = True)
 
     def load_model(self, model_path):
@@ -118,4 +118,3 @@ class DNN(Network):
     def predict(self, sample):
         sample = np,array(sample).reshape((1,self.input_dim))
         return super().predict(sample) 
-    
