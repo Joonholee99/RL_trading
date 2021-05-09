@@ -19,28 +19,77 @@ class ReinforcementLearner:
     lock = threading.Lock()
 
     def __init__(self, rl_method = 'rl', stock_code = None, chart_data = None,
-                traiding_data = None, min_trading_unit = 1, max_trading_unit = 2,
+                training_data = None, min_trading_unit = 1, max_trading_unit = 2,
                 delayed_reward_threshold = 0.05, net = 'dnn', num_steps = 1, lr = 0.001,
                 value_network = None, policy_network = None, output_path = '', reuse_models = True):
                 
-                assert min_trading_unit > 0
-                assert max_trading_unit > 0
-                assert max_trading_unit > min_trading_unit
-                assert num_steps > 0
-                assert lr > 0
+        assert min_trading_unit > 0
+        assert max_trading_unit > 0
+        assert max_trading_unit > min_trading_unit
+        assert num_steps > 0
+        assert lr > 0
 
-                #강화학습 기법 설정
-                self.rl_method = rl_method
+        #강화학습 기법 설정
+        self.rl_method = rl_method
 
-                #환경 설정
-                self.stock_code = stock_code
-                self.chart_data = chart_data
-                self.environment = Environment(chart_data)
+        #환경 설정
+        self.stock_code = stock_code
+        self.chart_data = chart_data
+        self.environment = Environment(chart_data)
 
-                # 에이전트 설정
-                self.agent = Agent(self.environment, min_trading_unit= min_trading_unit, max_trading_unit= max_trading_unit, 
-                                    delayed_reward_threshold = delayed_reward_threshold)
+        # 에이전트 설정
+        self.agent = Agent(self.environment, min_trading_unit= min_trading_unit, max_trading_unit= max_trading_unit, 
+                            delayed_reward_threshold = delayed_reward_threshold)
+        
+        self.training_data = training_data
+        self.sample = None
+        self.training_data_idx = -1
 
-                
+        # 벡터 크기 = 학습 데이터 벡터 크기 + 에이전트 상태 크기
+        self.num_features = self.agent.STATE_DIM
 
-    
+        if self.training_data is not None:
+            self.num_features += self.training_data.shape[1]
+
+        # 신경망 설정
+        self.net = net
+        self.num_steps = num_steps
+        self.lr = lr
+        self.value_network = value_network
+        self.policy_network = policy_network
+        self.reuse_models = reuse_models
+
+        #가시화 모듈
+        self.visualizer = Visualizer()
+
+        # 메모리
+        self.memory_sample = []
+        self.memory_action = []
+        self.memory_reward = []
+        self.memory_value = []
+        self.memory_policy = []
+        self.memory_pv = []
+        self.memory_num_stocks = []
+        self.memory_exp_idx = []
+        self.memory_learning_idx = []
+        
+        # 에포크 관련 정보
+        self.loss = 0
+        self.itr_cnt = 0
+        self.exploration_cnt = 0
+        self.batch_size = 0
+        self.learning_cnt = 0
+
+        #로그 등 출력 경로
+        self.output_path = output_path
+
+    def init_value_network(self, shared_network = None, activation = 'linear', loss='mse'):
+        if self.net == 'dnn':
+            self.value_network = DNN(input_dim = self.num_features, output_dim = self.agent.NUM_ACTIONS, lr=self.lr,
+                shared_network = shared_network, activation = activation, loss=loss)
+
+        
+        if self.reuse_models and os.path.exists(self.value_network_path):
+            self.value_network.load_model(model_path=self.value_network_path)
+
+    def
