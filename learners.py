@@ -92,4 +92,78 @@ class ReinforcementLearner:
         if self.reuse_models and os.path.exists(self.value_network_path):
             self.value_network.load_model(model_path=self.value_network_path)
 
-    def
+    def init_policy_network(self, shared_network=None, activation = 'sigmoid', loss = 'mse'):
+        if self.net == 'dnn':
+            self.policy_network = DNN(input_dim = self.num_features, output_dim = self.agent.NUM_ACTIONS, lr = self.lr, shared_network = shared_network, activation = activation, loss = loss)
+
+        if self.reuse_models and os.path.exist(self.policy_network_path):
+            self.policy_network.load_model(model_path = self.policy_network_path)
+
+    def reset(self):
+        self.sample = None
+        self.training_data_idx = -1
+
+        #환경 초기화
+        self.environment.reset()
+        
+        # init Agent
+        self.agent.reset()
+        
+        # init visualizer
+        self.visualizer.reset()
+        
+        # init memory
+        self.memory_sample = []
+        self.memory_action = []
+        self.memory_reward = []
+        self.memory_value = []
+        self.memory_policy = []
+        self.memory_pv = []
+        self.memory_num_stocks = []
+        self.memory_exp_idx = []
+        self.memory_learning_idx = []
+        
+        # init epch
+        self.loss = 0
+        self.itr_cnt = 0
+        self.exploration_cnt = 0
+        self.batch_size = 0
+        self.learning_cnt = 0
+
+    def build_sample(self):
+        self.environment.observe()
+        if len(self.training_data) > self.training_data_idx +1:
+            self.training_data_idx += 1
+            self.sample = self.training_data.iloc[self.training_data_idx].tolist()
+            self.sample.extend(self.agent.get_states())
+            return self.sample
+        return None
+
+    @abc.abstractmethod
+    def get_batch(self, batch_size, delayed_reward, discount_factor):
+        pass
+
+    def update_networks(self, batch_size, delayed_reward, discount_factor):
+        # 배치 학습 데이터 생성
+        x, y_value, y_policy = self.get_batch(batch_size, delayed_reward, discount_factor)
+        
+        if len(x) >0 :
+            loss = 0
+        
+            if y_value is not None:
+                # 가치 신경망 갱신
+                loss += self.value_network.train_on_batch(x,y_value)
+            
+            if y_policy is not None:
+                # 정책 신경망 갱신
+                loss += self.policy_network.train_on_batch(x,y_policy)
+            return loss
+        return None
+
+    def fit(self, delayed_reward, discount_factor):
+        
+
+    
+
+    
+
