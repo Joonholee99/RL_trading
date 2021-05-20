@@ -149,10 +149,10 @@ class Agent:
 
             # 보유 현금이 모자랄 경우 보유 현금으로 가능한 만큼 최대 매수
             if balance <0 :
-                trading_unit = max(min(int(self.balance/(curr_price)*(1+TRADING_CHARGE)), self.max_trading_unit),self.min_trading_unit)
+                trading_unit = max(min(int(self.balance/(curr_price)*(1+self.TRADING_CHARGE)), self.max_trading_unit),self.min_trading_unit)
             
             # 수수료 적용하여 총 매수 금액 산정
-            invest_amount = curr_price * (1+TRADING_CHARGE) * (trading_unit)
+            invest_amount = curr_price * (1+self.TRADING_CHARGE) * (trading_unit)
             if invest_amount > 0:
                 self.balance -= invest_amount
                 self.num_stocks += trading_unit
@@ -199,21 +199,3 @@ class Agent:
             delayed_reward = 0
 
         return self.immediate_reward, delayed_reward
-
-        
-
-
-    
-
-    
-    
-
-                
-
-        
-
-
-
-
-
-

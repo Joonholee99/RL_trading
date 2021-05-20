@@ -161,9 +161,111 @@ class ReinforcementLearner:
         return None
 
     def fit(self, delayed_reward, discount_factor):
+        # 배치 학습 데이터 생성 및 신경망 갱신
+        if self.batch_size > 0 :
+            _loss = self.update_networks(self.batch_size, delayed_reward, discount_factor)
+            if _loss is not None:
+                self.loss += abs(_loss)
+                self.learning_cnt += 1
+                self.memory_learning_idx.append(self.training_data_idx)
+            self.batch_size = 0
+
+    def visualize(self, epoch_str, num_epoches, epsilon):
+        self.memory_action = [Agent.ACTION_HOLD] * (self.num_steps-1) + self.memory_action
+        self.memory_num_stocks = [0] * (self.num_steps-1) + self.memory_num_stocks
+        
+        if self.value_network is not None:
+            self.memory_value = [np.array([np.nan] * len(Agent.ACTIONS))] * (self.num_steps-1) + self.memory_value
+        
+        if self.policy_network is not None:
+            self.memory_policy = [np.array([np.nan] * len(Agent.ACTIONS))] * (self.num_steps-1) + self.memory_policy
+        
+        self.memory_pv = [self.agent.initial_balance] * (self.num_steps - 1) + self.memory_pv
+
+        self.visualizer.plot(epoch_str = epoch_str, num_epoches = num_epoches, epsilon = epsilon, action_list = Agent.ACTIONS,
+        num_stocks = self.memory_num_stocks, outvals_value = self.memory_value, outvals_policy = self.memory_policy, exps = self.memory_exp_idx,
+        learning_idxes = self.memory_learning_idx, initial_balance = self.agent.initial_balance, pvs = self.memory_pv)
+
+        self.visualizer.save(os.path.join(self.epoch_summary_dir, 'epoch_summary_{}.png'.format(epoch_str)))
+    
+    #강화학습 실행 함수
+    def run(self, num_epochs = 100, balance = 1000000, discount_factor = 0.9, start_epsilon = 0.5, learning=True):
+        info = "[{code}] RL:{rl} Net:{net} LR:{lr}"\
+            "DF : {discount_factor} TU: [{min_trading_unit}, "\
+                "{max_trading_unit}] DRT:{delayed_reward_threshold}".format(code=self.stock_code, rl = self.rl_method, net=self.net,
+                lr = self.lr, discount_factor = discount_factor, min_trading_unit = self.agent.min_trading_unit, max_trading_unit = self.agent.max_trading_unit,
+                delayed_reward_threshold = self.agent.delayed_reward_threshold)
+        #learning = True -> Save the model //// learning = False -> only simulation
+        with self.lock:
+            logging.info(info)
+        
+        # 시작시간
+        time_start = time.time()
+
+        # 가시화 준비
+        self.visualizer.prepare(self.encironment.char_data, info)
+
+        #가시화 저장할 폴더
+        self.epoch_summary_dir = os.path.join(self.output_path, 'epoch_summary_{}'.format(self.stock_code))
+        if not os.path.isdir(self.epoch_summary_dir):
+            os.makedirs(self.epoch_summary_dir)
+        else:
+            for f in os.listdir(self.epoch_summary_dir):
+                os.remove(os.path.join(self.epoch_summary_dir, f))
+        
+        # Agent 초기 자본금
+        self.agent.set_balance(balance)
+
+        # 학습 정보 초기화
+        max_portfolio_value = 0
+        epoch_win_cnt = 0
+
+        for epoch in range(num_epochs):
+            time_start_epoch = time.time()
+
+            # step 샘플을 만들기 위한 큐
+            q_sample = collections.deque(maxlen = self.num_steps)
+
+            # 환경, 에이전트, 신경망, 가시화, 메모리 최소화
+            self.reset()
+
+            # 학습을 진행할수록 탐험 비율 감소
+            if learning:
+                epsilon = start_epsilon * (1. - float(epoch) / (num_epochs-1))
+                self.agent.reset_exploration()
+            else:
+                epsilon = start_epsilon
+            
+            while True:
+                # 샘플 생성
+                next_sample = self.build_sample()
+                if next_sample is None:
+                    break
+
+                # num_steps만큼 샘플 저장
+                q_sample.append(next_sample)
+                if len(q_sample) < self.num_steps:
+                    continue
+
+                # 가치, 정책 신경망 예측
+                pred_value = None
+                pred_policy = None
+                if self.value_network is not None:
+                    pred_value = self.value_network.predict(list(q_sample))
+
+                if self.policy_network is not None:
+                    pred_policy = self.policy_network.predict(list(q_sample))
+                
+                # 신경망 또는 탐험에 의한 행동 결정
+                action, confidence, exploration = self.agent.decide_action(pred_value, pred_policy, epsilon)
+                
+                # 결정한 행동을 수행하고 즉시 보상과 지연 보상 획득
+                immediate_reward, delayed_reward = self.agent.act(action, confidence)
+
+                
         
 
-    
 
-    
+
+
 
